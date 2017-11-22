@@ -1,12 +1,15 @@
+import atexit
 import sys
 import logging
 import time
 import getpass
 import psutil
 import random
-import sh
 import uuid
 import platform
+
+from sh import scutil, ifconfig, networksetup
+
 
 class WIFIonICE:
 
@@ -17,11 +20,17 @@ class WIFIonICE:
         self.logger = logging.getLogger(self.WIFI_SSID)
         self.init_usage = self.traffic_usage()
 
+        self.original_hostname = self.get_hostname()
+
         if self.init_usage >= self.TRAFFIC_LIMIT:
             self.logger.info("Initial reconnect because the script don't know if the limit has been already exeeded.")
             self.reconnect()
 
         self.run()
+
+    def handle_exit(self):
+        self.logger.info("Exiting, restoring original hostname")
+        self.set_hostname(self.original_hostname)
 
     def traffic_usage(self):
         """
@@ -39,16 +48,13 @@ class WIFIonICE:
         """
         Reconnects the WIFI connection with new MAC address and hostname
         """
-        network_setup = sh.Command("/usr/sbin/networksetup")
-        network_setup("-removepreferredwirelessnetwork", "en0", self.WIFI_SSID)
+        networksetup("-removepreferredwirelessnetwork", "en0", self.WIFI_SSID)
 
-        scutil = sh.Command("/usr/sbin/scutil")
-        scutil("–-set", "HostName", self.generate_new_hostname())
+        self.set_hostname(self.generate_new_hostname())
 
-        ifconfig = sh.Command("/sbin/ifconfig")
         ifconfig("en0", "ether", self.generate_new_mac())
 
-        network_setup("-setairportnetwork", "en0", self.WIFI_SSID)
+        networksetup("-setairportnetwork", "en0", self.WIFI_SSID)
         self.init_usage = self.traffic_usage()
 
     def generate_new_mac(self):
@@ -74,13 +80,19 @@ class WIFIonICE:
 
         return random_string[0:10]
 
+    def set_hostname(self, hostname):
+        scutil("--set", "HostName", hostname)
+
+    def get_hostname(self):
+        return scutil("--get", "HostName")
+
     def run(self):
         self.logger.info("Starting WIFIonICE Daemon")
 
         while True:
             traffic_usage = self.traffic_usage() - self.init_usage
 
-            self.logger.debug("Checking Traffic Usage, {used}/{available} MB traffic used".format(
+            self.logger.info("Checking Traffic Usage, {used}/{available} MB traffic used".format(
                 used=traffic_usage,
                 available=self.TRAFFIC_LIMIT
             ))
@@ -100,7 +112,7 @@ if __name__ == '__main__':
     logging.basicConfig(
         stream=sys.stdout,
         format="%(levelname)s - %(name)s -> %(message)s",
-        level=logging.DEBUG)
+        level=logging.INFO)
 
     if not platform.system() == 'Darwin':
         print("This script does only support Mac OS X right now.")
@@ -111,3 +123,4 @@ if __name__ == '__main__':
         sys.exit(1)
 
     ice = WIFIonICE()
+    atexit.register(lambda x: ice.handle_exit())

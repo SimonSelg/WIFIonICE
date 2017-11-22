@@ -1,11 +1,8 @@
 WIFIonICE Helper
 ================
 
-![WIFIonICE](https://www.iconfinder.com/icons/1679653/download/png/128)
-
-This tool improves your WIFI usage on ICE.
-
-Currently it only supports MacOS and needs to be executed with root privileges. 
+This tool will monitor data usage on WifionICE wifi and reconnect with a new
+hostname and mac address after the data limit is exceeded.
 
 
 ### Usage
