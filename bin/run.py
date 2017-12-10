@@ -97,7 +97,7 @@ class WIFIonICE:
                 available=self.TRAFFIC_LIMIT
             ))
 
-            if traffic_usage >= self.init_usage:
+            if traffic_usage >= self.TRAFFIC_LIMITe:
                 self.logger.info("Traffic Usage exeeded. Reconnecting now...")
                 self.reconnect()
 
